@@ -11,15 +11,31 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3  # Updated to v3 for Node.js 20 support
 
-    - name: Install required tools and Python
+    - name: Install required tools
       run: |
         sudo apt-get update
         sudo apt-get install -y openjdk-8-jdk
         sudo apt-get install -y jmeter
-        sudo apt-get install -y python3-pip
-        pip3 install taurus
+        sudo apt-get install -y python3 python3-pip
+
+    - name: Install Taurus
+      run: |
+        if ! command -v bzt &> /dev/null
+        then
+          pip3 install bzt
+          echo "export PATH=$HOME/.local/bin:\$PATH" >> $GITHUB_ENV
+        fi
+
+    - name: Refresh environment variables
+      run: |
+        source $GITHUB_ENV
+
+    - name: Verify Taurus installation
+      run: |
+        bzt --version
+      shell: bash
 
     - name: Run JMeter test using Taurus
       run: |

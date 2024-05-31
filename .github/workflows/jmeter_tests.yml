@@ -23,7 +23,7 @@ jobs:
 
     - name: Run JMeter test using Taurus
       run: |
-        bzt jmeter/tests/test.jmx -report
+         bzt awsTaurus/jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
 
     - name: Archive JMeter reports
       run: |

@@ -1,0 +1,48 @@
+name: Performance Test Run
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  jmeter:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install required tools and Python
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openjdk-8-jdk
+        sudo apt-get install -y jmeter
+        sudo apt-get install -y python3-pip
+        pip3 install taurus
+
+    - name: Run JMeter test using Taurus
+      run: |
+        bzt jmeter/tests/test.jmx -report
+
+    - name: Archive JMeter reports
+      run: |
+        ./scripts/archive_reports.sh
+
+    - name: Generate HTML reports
+      run: |
+        ./scripts/generate_reports.sh
+
+    - name: Set version
+      env:
+        VERSION: ${{ github.sha }}
+      run: |
+        echo "Version: $VERSION" > version.txt
+
+    - name: Commit version
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git add version.txt
+        git commit -m "Update version"
+        git push origin main

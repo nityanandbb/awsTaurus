@@ -11,7 +11,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3  # Updated to v3 for Node.js 20 support
+      uses: actions/checkout@v3
 
     - name: Install required tools
       run: |
@@ -31,6 +31,7 @@ jobs:
     - name: Refresh environment variables
       run: |
         source $GITHUB_ENV
+        sleep 30  # Wait for 30 seconds to ensure the environment variables are properly sourced
 
     - name: Verify Taurus installation
       run: |

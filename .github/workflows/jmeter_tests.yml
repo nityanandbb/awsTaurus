@@ -35,11 +35,11 @@ jobs:
         run: |
           bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
       - name: Ensure execute permission for scripts
-        run: chmod +x ./scripts/archive_reports.sh
+        run: chmod +x ./scripts/archive_reports.sh ./scripts/generate_reports.sh
       - name: Conditional Steps
         run: |
           if [[ "${{ steps.taurus.outputs.stdout }}" == *"bzt"* ]]; then
-            taurus_output=""
+            taurus_output="${{ steps.taurus.outputs.stdout }}"
             if [ -n "$taurus_output" ]; then
               report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "$taurus_output")
               echo "::set-output name=report_link::$report_link"
@@ -48,8 +48,11 @@ jobs:
               echo "No Taurus output found."
             fi
           else
-            ./scripts/archive_reports.sh
-            ./scripts/generate_reports.sh
+            if [[ -x "./scripts/generate_reports.sh" ]]; then
+              ./scripts/generate_reports.sh
+            else
+              echo "Generate reports script not found or does not have execute permission."
+            fi
           fi
       - name: Set version
         env:

@@ -9,15 +9,7 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-    - name: Check for changes in commits
-      id: git_changes
-      run: |
-        git fetch --depth=1 origin $GITHUB_SHA
-        CHANGES=$(git diff --name-only $GITHUB_SHA...origin/main)
-        echo "::set-output name=changes::$CHANGES"
-      shell: bash
     - name: Install required tools
-      if: steps.git_changes.outputs.changes != ''
       run: |
         sudo apt-get update
         sudo apt-get install -y openjdk-8-jdk
@@ -25,10 +17,11 @@ jobs:
         sudo apt-get install -y python3 python3-pip
         sudo apt-get install -y chromium-browser
     - name: Install Taurus
-      if: steps.git_changes.outputs.changes != '' && steps.taurus.outputs.stdout == ''
       run: |
-        pip3 install bzt
-        echo "export PATH=$HOME/.local/bin:\$PATH" >> $GITHUB_ENV
+        if ! command -v bzt &> /dev/null; then
+          pip3 install bzt
+          echo "export PATH=$HOME/.local/bin:\$PATH" >> $GITHUB_ENV
+        fi
     - name: Refresh environment variables
       run: |
         source $GITHUB_ENV
@@ -41,12 +34,15 @@ jobs:
       id: taurus
       run: |
         bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
+    - name: Export Report Link
+      run: |
+        report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
+        echo "::set-output name=report_link::$report_link"
     - name: Conditional Steps
       run: |
         if [[ "${{ steps.taurus.outputs.stdout }}" == *"bzt"* ]]; then
           report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
           echo "::set-output name=report_link::$report_link"
-          echo "# $(date '+%Y-%m-%d_%H-%M-%S') - $report_link" >> reports.txt
         else
           ./scripts/archive_reports.sh
           ./scripts/generate_reports.sh
@@ -60,6 +56,6 @@ jobs:
       run: |
         git config --global user.name "github-actions"
         git config --global user.email "github-actions@github.com"
-        git add version.txt reports.txt
-        git commit -m "Update version and add report link"
+        git add version.txt
+        git commit -m "Update version"
         git push origin main

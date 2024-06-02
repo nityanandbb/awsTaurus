@@ -34,10 +34,12 @@ jobs:
         id: taurus
         run: |
           bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
+      - name: Ensure execute permission for scripts
+        run: chmod +x ./scripts/archive_reports.sh
       - name: Conditional Steps
         run: |
           if [[ "${{ steps.taurus.outputs.stdout }}" == *"bzt"* ]]; then
-            taurus_output="${{ steps.taurus.outputs.stdout }}"
+            taurus_output=""
             if [ -n "$taurus_output" ]; then
               report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "$taurus_output")
               echo "::set-output name=report_link::$report_link"

@@ -35,7 +35,7 @@ jobs:
 
     - name: Verify Taurus installation
       run: |
-        bzt --version
+        bzt -h  # Use bzt -h instead of bzt --version to verify installation
       shell: bash
 
     - name: Run JMeter test using Taurus

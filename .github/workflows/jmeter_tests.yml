@@ -54,15 +54,4 @@ jobs:
               echo "Generate reports script not found or does not have execute permission."
             fi
           fi
-      - name: Set version
-        env:
-          VERSION: ${{ github.sha }}
-        run: |
-          echo "Version: $VERSION" > version.txt
-      - name: Commit version
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add version.txt
-          git commit -m "Update version"
-          git push origin main
+          

@@ -11,44 +11,38 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
 
-    - name: Install required tools
+    - name: Install required tools and Python
       run: |
         sudo apt-get update
         sudo apt-get install -y openjdk-8-jdk
         sudo apt-get install -y jmeter
-        sudo apt-get install -y python3 python3-pip
-
-    - name: Install Taurus
-      run: |
-        if ! command -v bzt &> /dev/null
-        then
-          pip3 install bzt
-          echo "export PATH=$HOME/.local/bin:\$PATH" >> $GITHUB_ENV
-        fi
-
-    - name: Refresh environment variables
-      run: |
-        source $GITHUB_ENV
-        sleep 30  # Wait for 30 seconds to ensure the environment variables are properly sourced
-
-    - name: Verify Taurus installation
-      run: |
-        bzt -h  # Use bzt -h instead of bzt --version to verify installation
-      shell: bash
+        sudo apt-get install -y python3-pip
+        pip3 install taurus
+        sudo apt-get install -y chromium-browser # Install headless browser (e.g., Chrome)
 
     - name: Run JMeter test using Taurus
+      id: taurus
       run: |
-         bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
+        bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
 
-    - name: Archive JMeter reports
+    - name: Export Report Link
       run: |
-        ./scripts/archive_reports.sh
+        report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
+        echo "::set-output name=report_link::$report_link"
 
-    - name: Generate HTML reports
+    - name: Conditional Steps
       run: |
-        ./scripts/generate_reports.sh
+        if [[ "${{ steps.taurus.outputs.stdout }}" == *"bzt"* ]]; then
+          # Taurus test execution, export report link
+          report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
+          echo "::set-output name=report_link::$report_link"
+        else
+          # JMeter test execution, archive and generate HTML reports
+          ./scripts/archive_reports.sh
+          ./scripts/generate_reports.sh
+        fi
 
     - name: Set version
       env:

@@ -1,74 +1,54 @@
 name: Performance Test Run
+
 on:
   push:
     branches:
       - main
+
 jobs:
   jmeter:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Install required tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y openjdk-8-jdk
-        sudo apt-get install -y jmeter
-        sudo apt-get install -y python3 python3-pip
-        sudo apt-get install -y chromium-browser
-    - name: Install Taurus
-      run: |
-        if ! command -v bzt &> /dev/null; then
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-8-jdk jmeter python3 python3-pip chromium-browser
+
+      - name: Install Taurus
+        run: |
           pip3 install bzt
-          echo "export PATH=$HOME/.local/bin:\$PATH" >> $GITHUB_ENV
-        fi
-    - name: Refresh environment variables
-      run: |
-        source $GITHUB_ENV
-        sleep 30
-    - name: Verify Taurus installation
-      run: |
-        bzt -h
-      shell: bash
-    - name: Run JMeter test using Taurus
-      id: taurus
-      run: |
-        bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
-    - name: Export Report Link
-      run: |
-        report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
-        echo "::set-output name=report_link::$report_link"
-    - name: Conditional Steps
-      run: |
-        if [[ "${{ steps.taurus.outputs.stdout }}" == *"bzt"* ]]; then
-          report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
-          echo "::set-output name=report_link::$report_link"
-        else
-          ./scripts/archive_reports.sh
-          ./scripts/generate_reports.sh
-        fi
-        
-    - name: Extract Online Report URL
+
+      - name: Run JMeter test using Taurus
+        id: taurus
+        run: |
+          bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
+
+      - name: Extract Online Report URL
         id: extract-url
         run: |
-          # Extract the URL from the log and save it to a file
-          URL=$(grep -oP 'https://a.blazemeter.com/app/\?public-token=[^ ]+' <<< "$(cat result.jtl)")
-          echo $URL > report_url.txt
+          report_link=$(grep -oP 'https://a\.blazemeter\.com/app/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
+          echo $report_link > report_url.txt
 
       - name: Upload Report URL as Artifact
         uses: actions/upload-artifact@v2
         with:
           name: report-url
           path: report_url.txt
-    - name: Set version
-      env:
-        VERSION: ${{ github.sha }}
-      run: |
-        echo "Version: $VERSION" > version.txt
-    - name: Commit version
-      run: |
-        git config --global user.name "github-actions"
-        git config --global user.email "github-actions@github.com"
-        git add version.txt
-        git commit -m "Update version"
-        git push origin main
+
+      - name: Set version
+        env:
+          VERSION: ${{ github.sha }}
+        run: |
+          echo "Version: $VERSION" > version.txt
+
+      - name: Commit version
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add version.txt
+          git commit -m "Update version"
+          git push origin main

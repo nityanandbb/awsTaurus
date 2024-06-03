@@ -47,6 +47,19 @@ jobs:
           ./scripts/archive_reports.sh
           ./scripts/generate_reports.sh
         fi
+        
+    - name: Extract Online Report URL
+        id: extract-url
+        run: |
+          # Extract the URL from the log and save it to a file
+          URL=$(grep -oP 'https://a.blazemeter.com/app/\?public-token=[^ ]+' <<< "$(cat result.jtl)")
+          echo $URL > report_url.txt
+
+      - name: Upload Report URL as Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: report-url
+          path: report_url.txt
     - name: Set version
       env:
         VERSION: ${{ github.sha }}

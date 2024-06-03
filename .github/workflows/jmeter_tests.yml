@@ -53,8 +53,6 @@ jobs:
       run: |
         report_link=$(cat report_url.txt)
         echo "# $(date '+%Y-%m-%d_%H-%M-%S') - $report_link" >> reports.txt
-        ./scripts/archive_reports.sh
-        ./scripts/generate_reports.sh
 
     - name: Upload Report URL as Artifact
       uses: actions/upload-artifact@v2

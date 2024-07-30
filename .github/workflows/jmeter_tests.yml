@@ -1,12 +1,9 @@
 name: Performance Test Run
-on:
-  push:
-    branches:
-      - main
 
 jobs:
   jmeter:
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -52,12 +49,67 @@ jobs:
       if: ${{ steps.export-report-link.outputs.report_link }}
       run: |
         report_link=$(cat report_url.txt)
-        echo "# $(date '+%Y-%m-%d_%H-%M-%S') - $report_link" >> reports.txt
+        timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
+        echo "# $timestamp - $report_link" >> reports.txt
+        echo "# Report Summary" > report_summary.md
+        echo "The report is available here: [Report Link]($report_link)" >> report_summary.md
+        sleep 5
+        chmod +x ./scripts/archive_reports.sh
+        sleep 5
+        chmod +x ./scripts/generate_reports.sh
+        sleep 5
+        ./scripts/archive_reports.sh
+        sleep 5
+        ./scripts/generate_reports.sh
 
     - name: Upload Report URL as Artifact
       uses: actions/upload-artifact@v2
       with:
         name: report-url
         path: report_url.txt
-  
 
+    - name: Upload Report Summary as Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: report-summary
+        path: report_summary.md
+
+    - name: Create Summary with Report Link
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const summaryPath = path.join(process.env.GITHUB_WORKSPACE, 'report_summary.md');
+          if (fs.existsSync(summaryPath)) {
+            const summaryContent = fs.readFileSync(summaryPath, 'utf8');
+            const { data: checkRuns } = await octokit.rest.checks.listForRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: context.runId
+            });
+            const checkRunId = checkRuns.check_runs[0].id;
+            await octokit.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              output: {
+                title: 'Report Summary',
+                summary: summaryContent
+              }
+            });
+          }
+
+    - name: Set version
+      env:
+        VERSION: ${{ github.sha }}
+      run: |
+        echo "Version: $VERSION" > version.txt
+
+    - name: Commit version
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git add version.txt
+        git commit -m "Update version"
+        git push origin main

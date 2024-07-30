@@ -86,6 +86,8 @@ jobs:
         git config --global user.name "github-actions"
         git config --global user.email "github-actions@github.com"
         git remote set-url origin https://github.com/${{ github.repository }}
+        git fetch origin
+        git merge origin/main --no-edit
         git add version.txt
         git commit -m "Update version"
         git push origin main

@@ -73,25 +73,11 @@ jobs:
         name: report-file
         path: report_${{ env.timestamp }}.txt
 
-    - name: Create Summary with Report Link
-      id: create-summary
-      uses: actions/github-script@v6
+    - name: Upload Report Link Markdown as Artifact
+      uses: actions/upload-artifact@v2
       with:
-        script: |
-          const { report_link, timestamp } = process.env;
-          const formatted_timestamp = timestamp.replace(/[-:]/g, '_');
-          const summaryContent = `# Report Summary\n\n[Click here to view the report](${report_link})`;
-          
-          // Output to be used in the GitHub Actions Summary
-          console.log(summaryContent);
-          
-          // Add the summary content to the GitHub Actions summary
-          const fs = require('fs');
-          const path = require('path');
-          const summaryPath = path.join(process.env.GITHUB_WORKSPACE, `report_link_${formatted_timestamp}.md`);
-          fs.writeFileSync(summaryPath, summaryContent);
-
-          return summaryContent;
+        name: report-link-markdown
+        path: report_link_${{ env.timestamp }}.md
 
     - name: Set version
       env:

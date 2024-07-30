@@ -56,19 +56,16 @@ jobs:
       run: |
         report_link="${{ env.report_link }}"
         timestamp="${{ env.timestamp }}"
-        report_filename="report_${timestamp}.txt"
-        echo "# $timestamp - $report_link" > $report_filename
-        echo "# Report Link - ${timestamp}" > report_link_${timestamp}.md
-        echo "The report is available here: [Report Link]($report_link)" >> report_link_${timestamp}.md
+        formatted_timestamp=$(date -d "$timestamp" '+%d_%m_%Y_%H_%M')
+        report_filename="report_${formatted_timestamp}.txt"
+        echo "# $formatted_timestamp - $report_link" > $report_filename
+        echo "# Report Link - ${formatted_timestamp}" > report_link_${formatted_timestamp}.md
+        echo "The report is available here: [Report Link]($report_link)" >> report_link_${formatted_timestamp}.md
         sleep 5
         chmod +x ./scripts/archive_reports.sh
-        sleep 5
         ./scripts/archive_reports.sh
-        sleep 5
         chmod +x ./scripts/generate_reports.sh
-        sleep 5
         ./scripts/generate_reports.sh
-        sleep 5
 
     - name: Upload Report File as Artifact
       uses: actions/upload-artifact@v2
@@ -77,31 +74,24 @@ jobs:
         path: report_${{ env.timestamp }}.txt
 
     - name: Create Summary with Report Link
+      id: create-summary
       uses: actions/github-script@v6
       with:
         script: |
+          const { report_link, timestamp } = process.env;
+          const formatted_timestamp = new Date(timestamp).toISOString().replace(/[:T-]/g, '_').replace(/Z$/, '');
+          const summaryContent = `# Report Summary\n\n[Click here to view the report](${report_link})`;
+          
+          // Output to be used in the GitHub Actions Summary
+          console.log(summaryContent);
+          
+          // Add the summary content to the GitHub Actions summary
           const fs = require('fs');
           const path = require('path');
-          const timestamp = new Date().toISOString().replace(/:/g, '-');
-          const summaryPath = path.join(process.env.GITHUB_WORKSPACE, `report_link_${timestamp}.md`);
-          if (fs.existsSync(summaryPath)) {
-            const summaryContent = fs.readFileSync(summaryPath, 'utf8');
-            const { data: checkRuns } = await octokit.rest.checks.listForRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: context.runId
-            });
-            const checkRunId = checkRuns.check_runs[0].id;
-            await octokit.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: checkRunId,
-              output: {
-                title: 'Report Summary',
-                summary: summaryContent
-              }
-            });
-          }
+          const summaryPath = path.join(process.env.GITHUB_WORKSPACE, `report_link_${formatted_timestamp}.md`);
+          fs.writeFileSync(summaryPath, summaryContent);
+
+          return summaryContent;
 
     - name: Set version
       env:

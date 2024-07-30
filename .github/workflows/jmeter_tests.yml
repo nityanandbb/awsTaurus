@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
 
 jobs:
   jmeter:
@@ -51,95 +47,47 @@ jobs:
       id: export-report-link
       run: |
         report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' output.log)
-        timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
-        echo "::set-output name=report_link::$report_link"
-        echo $report_link > report_link_${timestamp}.txt
-        echo "# Report Link - ${timestamp}" > report_link_${timestamp}.md
-        echo "The report is available here: [Report Link]($report_link)" >> report_link_${timestamp}.md
-
-    - name: Generate Report Summary
-      id: generate-summary
-      run: |
-        timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
-        # Ensure the summary file is generated
-        echo "# Report Summary - ${timestamp}" > report_summary.md
-        echo "Report Summary content goes here" >> report_summary.md
-        # Check if the summary file was created
-        if [ -f report_summary.md ]; then
-          mv report_summary.md report_summary_${timestamp}.md
-        else
-          echo "report_summary.md does not exist."
-          exit 1
-        fi
+        echo "report_link=$report_link" >> $GITHUB_ENV
 
     - name: Conditional Steps
-      if: ${{ steps.export-report-link.outputs.report_link }}
+      if: ${{ env.report_link }}
       run: |
-        sleep 5
+        report_link="${{ env.report_link }}"
         timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
-        sleep 5
-        mv reports.txt report_${timestamp}.txt || echo "reports.txt does not exist."
-        sleep 5
-        mv report_summary.md report_summary_${timestamp}.md || echo "report_summary.md does not exist."
+        echo "# $timestamp - $report_link" >> reports_${timestamp}.txt
+        echo "# Report Link - ${timestamp}" > report_link_${timestamp}.md
+        echo "The report is available here: [Report Link]($report_link)" >> report_link_${timestamp}.md
         sleep 5
         chmod +x ./scripts/archive_reports.sh
-        sleep 5
         ./scripts/archive_reports.sh
-        sleep 5
         chmod +x ./scripts/generate_reports.sh
-        sleep 5
         ./scripts/generate_reports.sh
+
+    - name: Extract Online Report URL
+      id: extract-url
+      run: |
+        URL="${{ env.report_link }}"
+        echo $URL > report_url.txt
 
     - name: Upload Report URL as Artifact
       uses: actions/upload-artifact@v2
       with:
         name: report-url
-        path: report_link_${{ steps.export-report-link.outputs.report_link }}.txt
-
-    - name: Upload Report Summary as Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: report-summary
-        path: report_summary_${{ steps.export-report-link.outputs.report_link }}.md
-
-    - name: Create Summary with Report Link
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-          const path = require('path');
-          const timestamp = new Date().toISOString().replace(/:/g, '-');
-          const summaryPath = path.join(process.env.GITHUB_WORKSPACE, `report_summary_${timestamp}.md`);
-          if (fs.existsSync(summaryPath)) {
-            const summaryContent = fs.readFileSync(summaryPath, 'utf8');
-            const { data: checkRuns } = await octokit.rest.checks.listForRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: context.runId
-            });
-            const checkRunId = checkRuns.check_runs[0].id;
-            await octokit.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: checkRunId,
-              output: {
-                title: 'Report Summary',
-                summary: summaryContent
-              }
-            });
-          }
+        path: report_url.txt
 
     - name: Set version
       env:
         VERSION: ${{ github.sha }}
       run: |
         echo "Version: $VERSION" > version.txt
-   - name: Commit version
-     run: |
-     git config --global user.name "github-actions"
-     git config --global user.email "github-actions@github.com"
-     git remote set-url origin https://github.com/${{ github.repository }}
-     git add version.txt
-     git commit -m "Update version"
-     git push origin main
-     
+
+    - name: Commit version
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git remote set-url origin https://github.com/${{ github.repository }}
+        git fetch origin
+        git merge origin/main --no-edit
+        git add version.txt
+        git commit -m "Update version"
+        git push origin main

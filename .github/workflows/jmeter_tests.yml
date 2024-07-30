@@ -73,6 +73,23 @@ jobs:
       with:
         name: report-link-markdown
         path: report_link_${{ env.timestamp }}.md
+        
+    - name: Post Summary Comment
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { GITHUB_API_URL, GITHUB_TOKEN } = process.env;
+          const report_link = process.env.report_link;
+          const timestamp = process.env.timestamp;
+          const formatted_timestamp = timestamp.replace(/[-:]/g, '_');
+          const comment = `# Performance Test Report\n\n**Timestamp:** ${timestamp}\n\n**Report Link:** [Click here](${report_link})`;
+
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: comment,
+          });
 
     - name: Set version
       env:

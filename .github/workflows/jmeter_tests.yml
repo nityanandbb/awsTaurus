@@ -1,4 +1,5 @@
 name: Performance Test Run
+
 on:
   push:
     branches:
@@ -7,6 +8,7 @@ on:
 jobs:
   jmeter:
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -39,29 +41,32 @@ jobs:
     - name: Run JMeter test using Taurus
       id: taurus
       run: |
-        bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report
+        bzt jmeter/tests/performance/9MAYPROD-SF-NOcookAndClariity.jmx -report | tee output.log
 
     - name: Export Report Link
+      id: export-report-link
       run: |
-        report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
-        echo "::set-output name=report_link::$report_link"
+        report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' output.log)
+        echo "report_link=$report_link" >> $GITHUB_ENV
 
     - name: Conditional Steps
+      if: ${{ env.report_link }}
       run: |
-        if [[ "${{ steps.taurus.outputs.stdout }}" == *"bzt"* ]]; then
-          report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
-          echo "::set-output name=report_link::$report_link"
-          echo "# $(date '+%Y-%m-%d_%H-%M-%S') - $report_link" >> reports.txt
-        else
-          ./scripts/archive_reports.sh
-          ./scripts/generate_reports.sh
-        fi
+        report_link="${{ env.report_link }}"
+        timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
+        echo "# $timestamp - $report_link" >> reports_${timestamp}.txt
+        echo "# Report Link - ${timestamp}" > report_link_${timestamp}.md
+        echo "The report is available here: [Report Link]($report_link)" >> report_link_${timestamp}.md
+        sleep 5
+        chmod +x ./scripts/archive_reports.sh
+        ./scripts/archive_reports.sh
+        chmod +x ./scripts/generate_reports.sh
+        ./scripts/generate_reports.sh
 
     - name: Extract Online Report URL
       id: extract-url
       run: |
-        # Extract the URL from the log and save it to a file
-        URL=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' <<< "${{ steps.taurus.outputs.stdout }}")
+        URL="${{ env.report_link }}"
         echo $URL > report_url.txt
 
     - name: Upload Report URL as Artifact
@@ -75,12 +80,12 @@ jobs:
         VERSION: ${{ github.sha }}
       run: |
         echo "Version: $VERSION" > version.txt
-   - name: Commit version
-     run: |
-     git config --global user.name "github-actions"
-     git config --global user.email "github-actions@github.com"
-     git remote set-url origin https://github.com/${{ github.repository }}
-     git add version.txt
-     git commit -m "Update version"
-     git push origin main
-     
+
+    - name: Commit version
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git remote set-url origin https://github.com/${{ github.repository }}
+        git add version.txt
+        git commit -m "Update version"
+        git push origin main

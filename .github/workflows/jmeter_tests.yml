@@ -47,7 +47,7 @@ jobs:
       id: export-report-link
       run: |
         report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' output.log)
-        timestamp=$(date '+%d_%m_%Y_%H_%M')
+        timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
         echo "report_link=$report_link" >> $GITHUB_ENV
         echo "timestamp=$timestamp" >> $GITHUB_ENV
 
@@ -56,10 +56,10 @@ jobs:
       run: |
         report_link="${{ env.report_link }}"
         timestamp="${{ env.timestamp }}"
-        formatted_timestamp=$(date -d "$timestamp" '+%d_%m_%Y_%H_%M')
+        formatted_timestamp=$(echo $timestamp | sed 's/[-:]//g')
         report_filename="report_${formatted_timestamp}.txt"
-        echo "# $formatted_timestamp - $report_link" > $report_filename
-        echo "# Report Link - ${formatted_timestamp}" > report_link_${formatted_timestamp}.md
+        echo "# $timestamp - $report_link" > $report_filename
+        echo "# Report Link - ${timestamp}" > report_link_${formatted_timestamp}.md
         echo "The report is available here: [Report Link]($report_link)" >> report_link_${formatted_timestamp}.md
         sleep 5
         chmod +x ./scripts/archive_reports.sh
@@ -79,7 +79,7 @@ jobs:
       with:
         script: |
           const { report_link, timestamp } = process.env;
-          const formatted_timestamp = new Date(timestamp).toISOString().replace(/[:T-]/g, '_').replace(/Z$/, '');
+          const formatted_timestamp = timestamp.replace(/[-:]/g, '_');
           const summaryContent = `# Report Summary\n\n[Click here to view the report](${report_link})`;
           
           // Output to be used in the GitHub Actions Summary

@@ -1,5 +1,14 @@
 name: Performance Test Run
 
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
 jobs:
   jmeter:
     runs-on: ubuntu-latest
@@ -42,37 +51,34 @@ jobs:
       id: export-report-link
       run: |
         report_link=$(grep -oP 'https:\/\/a\.blazemeter\.com\/app\/\?public-token=\S+' output.log)
+        timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
         echo "::set-output name=report_link::$report_link"
-        echo $report_link > report_url.txt
+        echo $report_link > report_link_${timestamp}.txt
+        echo "# Report Link - ${timestamp}" > report_link_${timestamp}.md
+        echo "The report is available here: [Report Link]($report_link)" >> report_link_${timestamp}.md
 
     - name: Conditional Steps
       if: ${{ steps.export-report-link.outputs.report_link }}
       run: |
-        report_link=$(cat report_url.txt)
         timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
-        echo "# $timestamp - $report_link" >> reports.txt
-        echo "# Report Summary" > report_summary.md
-        echo "The report is available here: [Report Link]($report_link)" >> report_summary.md
-        sleep 5
+        mv reports.txt report_${timestamp}.txt
+        mv report_summary.md report_summary_${timestamp}.md
         chmod +x ./scripts/archive_reports.sh
-        sleep 5
-        chmod +x ./scripts/generate_reports.sh
-        sleep 5
         ./scripts/archive_reports.sh
-        sleep 5
+        chmod +x ./scripts/generate_reports.sh
         ./scripts/generate_reports.sh
 
     - name: Upload Report URL as Artifact
       uses: actions/upload-artifact@v2
       with:
         name: report-url
-        path: report_url.txt
+        path: report_link_${{ steps.export-report-link.outputs.report_link }}.txt
 
     - name: Upload Report Summary as Artifact
       uses: actions/upload-artifact@v2
       with:
         name: report-summary
-        path: report_summary.md
+        path: report_summary_${{ steps.export-report-link.outputs.report_link }}.md
 
     - name: Create Summary with Report Link
       uses: actions/github-script@v6
@@ -80,7 +86,8 @@ jobs:
         script: |
           const fs = require('fs');
           const path = require('path');
-          const summaryPath = path.join(process.env.GITHUB_WORKSPACE, 'report_summary.md');
+          const timestamp = new Date().toISOString().replace(/:/g, '-');
+          const summaryPath = path.join(process.env.GITHUB_WORKSPACE, `report_summary_${timestamp}.md`);
           if (fs.existsSync(summaryPath)) {
             const summaryContent = fs.readFileSync(summaryPath, 'utf8');
             const { data: checkRuns } = await octokit.rest.checks.listForRun({
